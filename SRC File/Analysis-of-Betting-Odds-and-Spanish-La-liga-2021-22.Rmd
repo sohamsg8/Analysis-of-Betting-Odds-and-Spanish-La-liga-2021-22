@@ -1,0 +1,177 @@
+---
+title: "Visualization"
+author: "Soham Sengupta"
+date: "28/10/2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(tidyverse)
+```
+
+
+
+```{r}
+data<- read.csv("SP1.csv")
+summary(data)
+data$pair <- 0.5*(data$FTHG+data$FTAG)*(data$FTHG+data$FTAG+1)+data$FTAG
+library(ggplot2)
+
+
+```
+```{r}
+pair_freq <- data %>% 
+  count(pair)
+
+left_join(x = data, y = pair_freq, by = "pair") %>% 
+  ggplot(aes(FTHG, FTAG)) +
+  geom_point(aes(color = FTR, size = n)) +
+  geom_text(aes(label = n, hjust = -1.8)) +
+  guides(size = "none")+
+labs(title = "Scatter Plot Showing Match Result", x="Home Team Goal", y="Away Team Goal")
+```
+```{r}
+library(gridExtra)
+p1<-data %>% 
+  count(FTR) %>% 
+  mutate(n = n/sum(n)) %>% 
+  ggplot(aes(y = n, fill = FTR, x = "")) +
+  geom_col() + 
+  coord_polar(theta = "y") + labs(title = "Distribution of result(full time)")
+p2<-data %>% 
+  count(HTR) %>% 
+  mutate(n = n/sum(n)) %>% 
+  ggplot(aes(y = n, fill = HTR, x = "")) +
+  geom_col() + 
+  coord_polar(theta = "y") + labs(title = "Distribution of result(half time)")
+grid.arrange(p1,p2, ncol=2)
+
+```
+
+
+```{r}
+teams <- data %>% 
+  distinct(HomeTeam)
+
+teams <- as.array(teams$HomeTeam)
+
+home_stat = data.frame()
+for(team in teams){
+  temp = data.frame(team_name = team)
+  temp <- cbind(temp, data %>% 
+    filter(HomeTeam == team) %>% 
+    summarise(total_shots = sum(HS),
+              total_shots_on_target = sum(HST),
+              total_goals = sum(FTHG)))
+  home_stat <- rbind(home_stat, temp)
+}
+away_stat = data.frame()
+for(team in teams){
+  temp = data.frame(team_name = team)
+  temp <- cbind(temp, data %>% 
+    filter(AwayTeam == team) %>% 
+    summarise(total_shots = sum(AS),
+              total_shots_on_target = sum(AST),
+              total_goals = sum(FTAG)))
+  away_stat <- rbind(away_stat, temp)
+}
+left_join(home_stat, away_stat, by = "team_name") %>% 
+  mutate(total_shots = total_shots.x + total_shots.y,
+         total_shots_on_target = total_shots_on_target.x + total_shots_on_target.y,
+         total_goals = total_goals.x + total_goals.y) %>% 
+  select(total_shots, total_shots_on_target, total_goals, team_name) %>% 
+  pivot_longer(total_shots:total_goals, names_to = "category", values_to = "value")%>%
+  ggplot(aes(fill = category, x = team_name, y = value)) +
+  geom_bar(position = "stack", stat = "identity") + 
+  theme(axis.text.x = element_text(angle = 30, vjust = 1, hjust = 1))+labs(title = "Distribution of Shot and goal per team")
+
+
+
+```
+```{r}
+teams <- data %>% 
+  distinct(HomeTeam)
+
+teams <- as.array(teams$HomeTeam)
+
+home_stat = data.frame()
+for(team in teams){
+  temp = data.frame(team_name = team)
+  temp <- cbind(temp, data %>% 
+    filter(HomeTeam == team) %>% 
+    summarise(total_foul = sum(HF),
+              total_yellow = sum(HY),
+              total_red = sum(HR)))
+  home_stat <- rbind(home_stat, temp)
+}
+away_stat = data.frame()
+for(team in teams){
+  temp = data.frame(team_name = team)
+  temp <- cbind(temp, data %>% 
+    filter(AwayTeam == team) %>% 
+    summarise(total_foul = sum(AF),
+              total_yellow = sum(AY),
+              total_red = sum(AR)))
+  away_stat <- rbind(away_stat, temp)
+}
+left_join(home_stat, away_stat, by = "team_name") %>% 
+  mutate(total_foul = total_foul.x + total_foul.y,
+         total_yellow = total_yellow.x + total_yellow.y,
+         total_red = total_red.x + total_red.y) %>% 
+  select(total_foul, total_yellow, total_red, team_name) %>% 
+  pivot_longer(total_foul:total_red, names_to = "category", values_to = "value")%>%
+  ggplot(aes(fill = category, x = team_name, y = value)) +
+  geom_bar(position = "stack", stat = "identity") + 
+  theme(axis.text.x = element_text(angle = 30, vjust = 1, hjust = 1))+labs(title = "Distribution of fouls and cards")
+```
+```{r}
+library(grid)
+data$sl <- c(seq(1,380))
+data$B365_change<-data$B365H-data$B365CH
+data$BW_change<-data$BWH-data$BWCH
+data$IW_change<-data$IWH-data$IWCH
+data$PS_change<-data$PSH-data$PSCH
+data$WH_change<-data$WHH-data$WHCH
+data$VC_change<-data$VCH-data$VCCH
+
+q1<-ggplot(data,aes(x=sl)) + geom_line(aes(y = B365_change), color = "red")+
+    labs(title = "Bet365")
+q2<-ggplot(data,aes(x=sl)) + geom_line(aes(y = BW_change), color = "blue")+
+    labs(title = "Bet&Win")
+q3<-ggplot(data,aes(x=sl)) + geom_line(aes(y = IW_change), color = "orange")+
+    labs(title = "Interwetten")
+q4<-ggplot(data,aes(x=sl)) + geom_line(aes(y = PS_change), color = "green")+
+    labs(title = "Pinnacle Home")
+q5<-ggplot(data,aes(x=sl)) + geom_line(aes(y = WH_change), color = "black")+
+    labs(title = "William Hill")
+q6<-ggplot(data,aes(x=sl)) + geom_line(aes(y = VC_change), color = "purple")+
+    labs(title = "VC Bet")
+grid.arrange(q1,q2,q3,q4,q5,q6, nrow=3, top=textGrob("Change in Odds for Home team before and at the closing moment by various betting providers"))
+```
+```{r}
+data$Avg_changeH<-data$AvgH-data$AvgCH
+data$Avg_changeD<-data$AvgD-data$AvgCD
+data$Avg_changeA<-data$AvgA-data$AvgCA
+l1<-ggplot(data,aes(x=sl)) + geom_line(aes(y = Avg_changeH), color = "Red")+
+    labs(title = "Home")
+l2<-ggplot(data,aes(x=sl)) + geom_line(aes(y = Avg_changeD), color = "Purple")+
+    labs(title = "Draw")
+l3<-ggplot(data,aes(x=sl)) + geom_line(aes(y = Avg_changeA), color = "Blue")+
+    labs(title = "Away")
+grid.arrange(l1,l2,l3, nrow=3, top=textGrob("Change in Avg Odds for Home team, Away team and Draw before and at the closing moment by various betting providers"))
+
+```
+
+
